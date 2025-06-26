@@ -7,7 +7,7 @@ from playwright.async_api import async_playwright
 from PIL import Image, ImageEnhance, ImageFilter
 import pytesseract
 
-pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
+pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"  # Adjust if needed
 
 URL = "https://streamelements.com/overlay/68598695ad17f766e5f73a53/BxyUCTK-TdLWVe2zHmerlzMa_LhpEL2qcF7voCp9U1TkTMp9"
 
@@ -19,7 +19,15 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
 
-async def take_screenshots_and_ocr() -> str:
+def preprocess_image_for_ocr(image_path):
+    image = Image.open(image_path)
+    image = image.resize((image.width * 2, image.height * 2))
+    image = image.convert("L")
+    image = ImageEnhance.Contrast(image).enhance(3)
+    image = image.filter(ImageFilter.SHARPEN)
+    return image
+
+async def take_3_slides_and_ocr():
     os.makedirs("slides", exist_ok=True)
     all_text = []
 
@@ -28,65 +36,39 @@ async def take_screenshots_and_ocr() -> str:
         page = await browser.new_page(viewport={"width": 1920, "height": 1080})
         await page.goto(URL)
 
-        # Initial wait so overlay animations can start
-        print("[+] Waiting 15 seconds for overlay initial load...")
-        await asyncio.sleep(15)
+        print("[+] Waiting 20 seconds for first slide to appear...")
+        await asyncio.sleep(20)
 
-        for idx, slide_num in enumerate(range(4, 13)):
-            wait_time = 20 if slide_num == 4 else 10
-            print(f"[+] Waiting {wait_time}s before capturing slide {slide_num}")
-            await asyncio.sleep(wait_time)
+        for i in range(3):
+            slide_number = i + 1
+            filename = f"slides/slide{slide_number}.png"
+            await page.screenshot(path=filename)
+            print(f"[+] Saved screenshot {filename}")
 
-            filename = f"slides/slide{slide_num}.png"
-            try:
-                await page.screenshot(path=filename)
-                print(f"[+] Saved {filename}")
-            except Exception as e:
-                print(f"⚠️ Failed to save {filename}: {e}")
-                continue
-
-            # Ensure file is available
-            for _ in range(5):
-                if os.path.exists(filename):
-                    break
-                await asyncio.sleep(1)
-            else:
-                print(f"❌ {filename} not found after screenshot")
-                continue
-
-            image = Image.open(filename)
-            image = image.resize((image.width * 2, image.height * 2))
-            image = image.convert("L")
-            image = ImageEnhance.Contrast(image).enhance(2.5)
-            image = image.filter(ImageFilter.SHARPEN)
-
+            image = preprocess_image_for_ocr(filename)
             text = pytesseract.image_to_string(image)
-            all_text.append(f"Slide {slide_num}:\n{text.strip()}\n{'-'*40}\n")
+            all_text.append(f"Slide {slide_number}:\n{text.strip()}\n{'-'*40}\n")
 
-        # Extra buffer before closing
-        await asyncio.sleep(5)
+            await asyncio.sleep(10)
+
         await browser.close()
 
     return "".join(all_text)
 
 @bot.command()
 async def progress(ctx):
-    await ctx.send("📸 Capturing overlay slides 4–12 and extracting text… please wait.")
+    await ctx.send("📸 Capturing the first 3 slides... Please wait.")
 
     try:
-        extracted = await take_screenshots_and_ocr()
-        if not extracted.strip():
-            extracted = "No progress text detected."
+        result = await take_3_slides_and_ocr()
+        if not result.strip():
+            result = "No text detected."
 
-        for i in range(0, len(extracted), 1900):
-            await ctx.send(f"```{extracted[i:i+1900]}```")
+        for chunk_start in range(0, len(result), 1900):
+            await ctx.send(f"```{result[chunk_start:chunk_start+1900]}```")
+
     except Exception as e:
-        await ctx.send(f"⚠️ Error during processing: {e}")
+        await ctx.send(f"⚠️ Error: {e}")
         print("Error:", e)
 
 bot.run(os.getenv("DISCORD_TOKEN"))
-
-
-
-
-
