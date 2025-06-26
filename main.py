@@ -13,6 +13,9 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 URL = "https://streamelements.com/overlay/68598695ad17f766e5f73a53/BxyUCTK-TdLWVe2zHmerlzMa_LhpEL2qcF7voCp9U1TkTMp9"
 
+# Set Tesseract path for Railway Linux environment
+pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
+
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
@@ -54,7 +57,7 @@ async def progress(ctx):
         if not extracted_text.strip():
             extracted_text = "No progress text detected."
 
-        # Discord message limit ~2000 chars
+        # Discord message limit ~2000 chars, send in chunks
         for chunk_start in range(0, len(extracted_text), 1900):
             await ctx.send(f"```{extracted_text[chunk_start:chunk_start+1900]}```")
 
@@ -63,3 +66,4 @@ async def progress(ctx):
         print("Error:", e)
 
 bot.run(os.getenv("DISCORD_TOKEN"))
+
