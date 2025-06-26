@@ -2,3 +2,4 @@ discord.py
 selenium
 pytesseract
 pillow
+chromedriver-autoinstaller
