@@ -1,3 +1,2 @@
-chromium-driver
-chromium-browser
+tesseract-ocr
 fonts-liberation
