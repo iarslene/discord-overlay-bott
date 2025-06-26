@@ -1,1 +1,1 @@
-worker: bash install-chrome.sh && python3 main.py
+worker: python3 main.py
