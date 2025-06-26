@@ -1,40 +1,33 @@
-import os
 import discord
 from discord.ext import commands
-from PIL import Image, ImageEnhance, ImageFilter
+from PIL import Image
 import pytesseract
-
-# Optional: adjust path
-# pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
+import os
 
 intents = discord.Intents.default()
 intents.message_content = True
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-def preprocess_image(path):
-    image = Image.open(path)
-    image = image.resize((image.width * 3, image.height * 3))  # Upscale
-    image = image.convert("L")  # Grayscale
-    image = ImageEnhance.Contrast(image).enhance(3)  # Contrast
-    image = image.filter(ImageFilter.MedianFilter(size=3))  # Denoise
-    return image
+# Files are in repo root
+FILES_TO_READ = [
+    "slide4.png",
+    "slide5.png",
+    "slide6.png"
+]
 
-def extract_text_from_screenshots():
-    folder = "slides"
+def extract_text_from_files(image_files):
     all_text = []
-
-    for i in range(1, 4):  # slide1 to slide3
-        path = os.path.join(folder, f"slide{i}.png")
-        if not os.path.exists(path):
-            all_text.append(f"⚠️ slide{i}.png not found.")
+    for filepath in image_files:
+        if not os.path.exists(filepath):
+            all_text.append(f"⚠️ File not found: {filepath}\n{'-'*40}\n")
             continue
-
-        image = preprocess_image(path)
-        config = r"--oem 3 --psm 6"
-        text = pytesseract.image_to_string(image, config=config)
-
-        all_text.append(f"Slide {i}:\n{text.strip()}\n{'-'*40}")
-
+        try:
+            image = Image.open(filepath)
+            text = pytesseract.image_to_string(image)
+            all_text.append(f"{filepath}:\n{text.strip()}\n{'-'*40}\n")
+        except Exception as e:
+            all_text.append(f"⚠️ Error reading {filepath}: {e}\n{'-'*40}\n")
     return "\n".join(all_text)
 
 @bot.event
@@ -43,19 +36,17 @@ async def on_ready():
 
 @bot.command()
 async def progress(ctx):
-    await ctx.send("🔍 Extracting text from screenshots...")
+    await ctx.send("🔍 Extracting text from specified images...")
 
-    try:
-        result = extract_text_from_screenshots()
-        if not result.strip():
-            result = "⚠️ No text detected."
+    extracted_text = extract_text_from_files(FILES_TO_READ)
 
-        for i in range(0, len(result), 1900):
-            await ctx.send(f"```{result[i:i+1900]}```")
+    if not extracted_text.strip():
+        extracted_text = "No text detected in the specified images."
 
-    except Exception as e:
-        await ctx.send("⚠️ Error while processing.")
-        print("Error:", e)
+    # Send in chunks to respect Discord message length limits (~2000 chars)
+    for i in range(0, len(extracted_text), 1900):
+        await ctx.send(f"```{extracted_text[i:i+1900]}```")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
+
 
