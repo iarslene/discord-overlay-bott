@@ -1,5 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 import os
 import time
 
@@ -8,7 +9,7 @@ URL = "https://streamelements.com/overlay/68598695ad17f766e5f73a53/BxyUCTK-TdLWV
 SAVE_DIR = "slides"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
-# Set up Chrome options
+# Chrome options
 options = Options()
 options.binary_location = "/usr/bin/chromium-browser"
 options.add_argument("--headless")
@@ -17,9 +18,11 @@ options.add_argument("--disable-dev-shm-usage")
 options.add_argument("--disable-gpu")
 options.add_argument("--window-size=1280,720")
 
-# Use Railway's chromedriver path
-driver = webdriver.Chrome(executable_path="/usr/bin/chromedriver", options=options)
+# Define service manually (modern Selenium)
+service = Service("/usr/bin/chromedriver")
+driver = webdriver.Chrome(service=service, options=options)
 
+# Navigate and screenshot
 driver.get(URL)
 time.sleep(5)
 
