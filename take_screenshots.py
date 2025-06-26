@@ -1,35 +1,38 @@
 import time
 import os
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-import chromedriver_autoinstaller
+from playwright.sync_api import sync_playwright
+from PIL import Image
+import pytesseract
 
-# ✅ Auto-install the correct chromedriver version
-chromedriver_autoinstaller.install()
+URL = "https://streamelements.com/overlay/68598695ad17f766e5f73a53/BxyUCTK-TdLWVe2zHmerlzMa_LhpEL2qcF7voCp9U1TkTMp9"
 
-# ✅ Create directory
-os.makedirs("slides", exist_ok=True)
+def take_screenshots_and_ocr():
+    os.makedirs("slides", exist_ok=True)
+    all_text = []
 
-# ✅ Setup headless Chrome
-options = Options()
-options.add_argument("--headless")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
-options.add_argument("--window-size=1920,1080")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 1920, "height": 1080})
+        page.goto(URL)
 
-# ✅ Start driver
-driver = webdriver.Chrome(options=options)
-driver.get("https://streamelements.com/overlay/68598695ad17f766e5f73a53/BxyUCTK-TdLWVe2zHmerlzMa_LhpEL2qcF7voCp9U1TkTMp9")
+        print("[+] Waiting 20 seconds for overlay animation...")
+        time.sleep(20)
 
-print("[+] Waiting 20 seconds to reach slide 4...")
-time.sleep(20)
+        for i in range(9):
+            slide_number = 4 + i
+            filename = f"slides/slide{slide_number}.png"
+            page.screenshot(path=filename)
+            print(f"[+] Saved screenshot {filename}")
 
-# ✅ Take 9 slides
-for i in range(9):
-    slide_number = 4 + i
-    filename = f"slides/slide{slide_number}.png"
-    driver.save_screenshot(filename)
-    print(f"[+] Saved {filename}")
-    time.sleep(5)
+            image = Image.open(filename)
+            text = pytesseract.image_to_string(image)
+            all_text.append(f"Slide {slide_number}:\n{text.strip()}\n{'-'*40}\n")
 
-driver.quit()
+            time.sleep(5)
+
+        browser.close()
+    return "\n".join(all_text)
+
+if __name__ == "__main__":
+    result = take_screenshots_and_ocr()
+    print(result)
