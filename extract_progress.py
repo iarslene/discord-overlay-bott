@@ -3,11 +3,11 @@ import pytesseract
 import re
 import os
 
-# Path to Tesseract
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+# Path to Tesseract executable on Linux (Railway)
+pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 
-# Folder containing slide4.png to slide12.png
-slides_folder = r"D:\test\slides"
+# Folder containing slides (use relative path)
+slides_folder = "./slides"
 
 # Regex to match progress patterns like 6/10, 0/5, 10/10, etc.
 progress_pattern = re.compile(r'\b\d{1,2}/\d{1,2}\b')
