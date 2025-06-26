@@ -1,23 +1,24 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-import time
 import os
+import time
 
-URL = "https://streamelements.com/overlay/68598695ad17f766e5f73a53/BxyUCTK-TdLWVe2zHmerlzMa_LhpEL2qcF7voCp9U1TkTMp9"
+# Prepare save folder
+URL = "https://YOUR_CAMPAIGN_LINK_HERE"
 SAVE_DIR = "slides"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
+# Set up Chrome options
 options = Options()
+options.binary_location = "/usr/bin/chromium-browser"
 options.add_argument("--headless")
-options.add_argument("--disable-gpu")
 options.add_argument("--no-sandbox")
-options.binary_location = "/usr/bin/chromium-browser"  # Railway chromium location
+options.add_argument("--disable-dev-shm-usage")
+options.add_argument("--disable-gpu")
+options.add_argument("--window-size=1280,720")
 
-driver = webdriver.Chrome(
-    executable_path="/usr/bin/chromedriver",  # Railway chromedriver path
-    options=options
-)
+# Use Railway's chromedriver path
+driver = webdriver.Chrome(executable_path="/usr/bin/chromedriver", options=options)
 
 driver.get(URL)
 time.sleep(5)
