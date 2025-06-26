@@ -1,5 +1,5 @@
 discord.py
-selenium
+playwright
 pytesseract
 pillow
-chromedriver-autoinstaller
+
