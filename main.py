@@ -1,38 +1,46 @@
-import discord
-from discord.ext import commands
-import subprocess
+import time
 import os
+from playwright.sync_api import sync_playwright
+from PIL import Image
+import pytesseract
 
-intents = discord.Intents.default()
-intents.message_content = True  # Needed for command handling
+# URL of your StreamElements overlay
+URL = "https://streamelements.com/overlay/68598695ad17f766e5f73a53/BxyUCTK-TdLWVe2zHmerlzMa_LhpEL2qcF7voCp9U1TkTMp9"
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+# Directory for screenshots and OCR text output
+os.makedirs("slides", exist_ok=True)
+os.makedirs("ocr_text", exist_ok=True)
 
-@bot.event
-async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
+def screenshot_and_ocr():
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 1920, "height": 1080})
+        page.goto(URL)
 
-@bot.command()
-async def progress(ctx):
-    await ctx.send("📸 Taking screenshots and extracting progress...")
+        print("[+] Waiting 20 seconds for overlay animation to reach slide 4...")
+        time.sleep(20)
 
-    try:
-        # Run screenshot script
-        subprocess.run(["python", "take_screenshots.py"], check=True)
+        for i in range(9):
+            slide_number = 4 + i
+            filename = f"slides/slide{slide_number}.png"
+            ocr_filename = f"ocr_text/slide{slide_number}.txt"
 
-        # Run extract script and capture output
-        result = subprocess.run(["python", "extract_progress.py"], capture_output=True, text=True, check=True)
+            # Take screenshot
+            page.screenshot(path=filename)
+            print(f"[+] Saved screenshot {filename}")
 
-        output = result.stdout.strip()
-        if not output:
-            output = "No progress data found."
+            # OCR extraction
+            image = Image.open(filename)
+            text = pytesseract.image_to_string(image)
 
-        # Send result (trim to Discord's message limit)
-        await ctx.send(f"```\n{output[-1900:]}\n```")
+            # Save OCR result
+            with open(ocr_filename, "w", encoding="utf-8") as f:
+                f.write(text)
+            print(f"[+] Saved OCR text {ocr_filename}")
 
-    except subprocess.CalledProcessError as e:
-        await ctx.send("⚠️ Error while processing scripts.")
-        print("Script error:", e)
+            time.sleep(5)  # wait before next slide
 
-# Use token from Railway env variables
-bot.run(os.getenv("DISCORD_TOKEN"))
+        browser.close()
+
+if __name__ == "__main__":
+    screenshot_and_ocr()
