@@ -1,5 +1,4 @@
 import os
-import time
 import asyncio
 from playwright.async_api import async_playwright
 
@@ -13,17 +12,18 @@ async def take_screenshots():
         page = await browser.new_page(viewport={"width": 1920, "height": 1080})
         await page.goto(URL)
 
-        print("[+] Waiting 20 seconds to reach slide 4...")
+        print("[+] Waiting 20 seconds to reach first slide...")
         await asyncio.sleep(20)
 
-        for i in range(9):  # slides 4 to 12
-            slide_number = 4 + i
+        for i in range(3):
+            slide_number = i + 1
             filename = f"slides/slide{slide_number}.png"
             await page.screenshot(path=filename)
             print(f"[+] Saved {filename}")
-            await asyncio.sleep(5)
+            await asyncio.sleep(10)
 
         await browser.close()
 
 if __name__ == "__main__":
     asyncio.run(take_screenshots())
+
