@@ -4,7 +4,7 @@ import os
 import time
 
 # Prepare save folder
-URL = "https://YOUR_CAMPAIGN_LINK_HERE"
+URL = "https://streamelements.com/overlay/68598695ad17f766e5f73a53/BxyUCTK-TdLWVe2zHmerlzMa_LhpEL2qcF7voCp9U1TkTMp9"
 SAVE_DIR = "slides"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
