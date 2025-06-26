@@ -1,74 +1,61 @@
 import os
-import re
-import asyncio
 import discord
 from discord.ext import commands
-from playwright.async_api import async_playwright
 from PIL import Image, ImageEnhance, ImageFilter
 import pytesseract
 
-pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"  # Adjust if needed
-
-URL = "https://streamelements.com/overlay/68598695ad17f766e5f73a53/BxyUCTK-TdLWVe2zHmerlzMa_LhpEL2qcF7voCp9U1TkTMp9"
+# Optional: adjust path
+# pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+def preprocess_image(path):
+    image = Image.open(path)
+    image = image.resize((image.width * 3, image.height * 3))  # Upscale
+    image = image.convert("L")  # Grayscale
+    image = ImageEnhance.Contrast(image).enhance(3)  # Contrast
+    image = image.filter(ImageFilter.MedianFilter(size=3))  # Denoise
+    return image
+
+def extract_text_from_screenshots():
+    folder = "slides"
+    all_text = []
+
+    for i in range(1, 4):  # slide1 to slide3
+        path = os.path.join(folder, f"slide{i}.png")
+        if not os.path.exists(path):
+            all_text.append(f"⚠️ slide{i}.png not found.")
+            continue
+
+        image = preprocess_image(path)
+        config = r"--oem 3 --psm 6"
+        text = pytesseract.image_to_string(image, config=config)
+
+        all_text.append(f"Slide {i}:\n{text.strip()}\n{'-'*40}")
+
+    return "\n".join(all_text)
+
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
 
-def preprocess_image_for_ocr(image_path):
-    image = Image.open(image_path)
-    image = image.resize((image.width * 2, image.height * 2))
-    image = image.convert("L")
-    image = ImageEnhance.Contrast(image).enhance(3)
-    image = image.filter(ImageFilter.SHARPEN)
-    return image
-
-async def take_3_slides_and_ocr():
-    os.makedirs("slides", exist_ok=True)
-    all_text = []
-
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page(viewport={"width": 1920, "height": 1080})
-        await page.goto(URL)
-
-        print("[+] Waiting 20 seconds for first slide to appear...")
-        await asyncio.sleep(20)
-
-        for i in range(3):
-            slide_number = i + 1
-            filename = f"slides/slide{slide_number}.png"
-            await page.screenshot(path=filename)
-            print(f"[+] Saved screenshot {filename}")
-
-            image = preprocess_image_for_ocr(filename)
-            text = pytesseract.image_to_string(image)
-            all_text.append(f"Slide {slide_number}:\n{text.strip()}\n{'-'*40}\n")
-
-            await asyncio.sleep(10)
-
-        await browser.close()
-
-    return "".join(all_text)
-
 @bot.command()
 async def progress(ctx):
-    await ctx.send("📸 Capturing the first 3 slides... Please wait.")
+    await ctx.send("🔍 Extracting text from screenshots...")
 
     try:
-        result = await take_3_slides_and_ocr()
+        result = extract_text_from_screenshots()
         if not result.strip():
-            result = "No text detected."
+            result = "⚠️ No text detected."
 
-        for chunk_start in range(0, len(result), 1900):
-            await ctx.send(f"```{result[chunk_start:chunk_start+1900]}```")
+        for i in range(0, len(result), 1900):
+            await ctx.send(f"```{result[i:i+1900]}```")
 
     except Exception as e:
-        await ctx.send(f"⚠️ Error: {e}")
+        await ctx.send("⚠️ Error while processing.")
         print("Error:", e)
 
 bot.run(os.getenv("DISCORD_TOKEN"))
+
