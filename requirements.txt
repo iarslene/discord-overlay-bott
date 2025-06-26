@@ -1,5 +1,4 @@
-discord.py
+discord.py==2.3.2
+selenium==4.21.0
+pillow
 pytesseract
-Pillow
-selenium
-webdriver-manager
