@@ -1,30 +1,51 @@
 import discord
 from discord.ext import commands
-from PIL import Image
+from playwright.async_api import async_playwright
+from PIL import Image, ImageEnhance, ImageFilter
 import pytesseract
 import os
+import asyncio
 
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-def get_png_files_from_root():
-    return [f for f in os.listdir(".") if f.lower().endswith(".png")]
+OVERLAY_URL = "https://streamelements.com/overlay/68598695ad17f766e5f73a53/BxyUCTK-TdLWVe2zHmerlzMa_LhpEL2qcF7voCp9U1TkTMp9"
 
-def extract_text_from_files(image_files):
-    all_text = []
-    for filepath in image_files:
-        if not os.path.exists(filepath):
-            all_text.append(f"⚠️ File not found: {filepath}\n{'-'*40}\n")
-            continue
-        try:
-            image = Image.open(filepath)
+async def take_screenshots_and_ocr():
+    os.makedirs("slides", exist_ok=True)
+    extracted_text = []
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page(viewport={"width": 1920, "height": 1080})
+        await page.goto(OVERLAY_URL)
+
+        print("[+] Waiting 20 seconds for overlay to load first slide...")
+        await asyncio.sleep(20)
+
+        for i in range(3):
+            slide_number = 4 + i
+            filename = f"slides/slide{slide_number}.png"
+            await page.screenshot(path=filename)
+            print(f"[+] Saved screenshot {filename}")
+
+            # Precise OCR pre-processing
+            image = Image.open(filename)
+            image = image.resize((image.width * 2, image.height * 2))
+            image = image.convert("L")
+            image = ImageEnhance.Contrast(image).enhance(3)
+            image = image.filter(ImageFilter.SHARPEN)
+
             text = pytesseract.image_to_string(image)
-            all_text.append(f"{filepath}:\n{text.strip()}\n{'-'*40}\n")
-        except Exception as e:
-            all_text.append(f"⚠️ Error reading {filepath}: {e}\n{'-'*40}\n")
-    return "\n".join(all_text)
+            extracted_text.append(f"Slide {slide_number}:\n{text.strip()}\n{'-'*40}\n")
+
+            await asyncio.sleep(10)  # Wait before capturing next slide
+
+        await browser.close()
+
+    return "\n".join(extracted_text)
 
 @bot.event
 async def on_ready():
@@ -32,23 +53,18 @@ async def on_ready():
 
 @bot.command()
 async def progress(ctx):
-    await ctx.send("🔍 Extracting text from all PNG images in the repo...")
+    await ctx.send("📸 Taking screenshots and extracting text... This may take up to a minute.")
 
-    image_files = get_png_files_from_root()
-    if not image_files:
-        await ctx.send("⚠️ No PNG files found in the root directory.")
-        return
+    try:
+        result = await take_screenshots_and_ocr()
+        if not result.strip():
+            result = "❌ No text extracted from slides."
 
-    extracted_text = extract_text_from_files(image_files)
+        for chunk in [result[i:i+1900] for i in range(0, len(result), 1900)]:
+            await ctx.send(f"```{chunk}```")
 
-    if not extracted_text.strip():
-        extracted_text = "No text detected in the available images."
-
-    for i in range(0, len(extracted_text), 1900):
-        await ctx.send(f"```{extracted_text[i:i+1900]}```")
+    except Exception as e:
+        await ctx.send(f"⚠️ Error: {e}")
+        print("Error:", e)
 
 bot.run(os.getenv("DISCORD_TOKEN"))
-
-
-
-
